@@ -1,0 +1,33 @@
+---
+title: "The Curious Case of HB 77"
+author: "Robert Kahne"
+date: "January 27, 2018"
+output:
+  prettydoc::html_pretty:
+    theme: architect
+    highlight: github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(rbokeh)
+hb77 <- readRDS('hb77_bokeh.rds')
+```
+
+Last year, when Republicans took over Kentucky's House of Representatives, it appeared that the gridlock associated with divided government was over -- and indeed, every bill that came to the floor during 2017's short session passed.  However, 2018 has been marked by drama.  At the end of 2017, Speaker of the House Jeff Hoover was caught sending inappropriate texts to a subordinate.  He resigned at a press conference before the session began, but, by law, his resignation could not be made official until the start of the legislative session.  Once the House went into session, Rep. Hoover had second thoughts. At first, he said he would wait until an ethics committee finished their report to fully resign.  However, after a few days, his position become untenable.  It was clear that the Republican caucus was extremely divided over his resignation head-fake.  He made a passionate speech on the floor of the House, and tendered his full resignation.
+
+With Republicans divided over Rep. Hoover, the caucus's strategy has been...interesting.  For all his faults, Jeff Hoover was a skilled legislative tactician, and effectively guided the GOP caucus in passing their priorities into law in 2017.  This year, major priorities such as a pension bill have yet to even be filed, and the House has lagged the Senate in getting bills to the floor.
+
+The most interesting public indication of the House GOP's lack of focus and strategy is found in House Bill 77 -- a bill about purple paint.  Many other states have similar laws -- where one big "No Trespassing" sign is placed prominently on property, and the rest of the boundary can be marked with purple paint.  The best explanation of the bill and the political story was written by [Ronnie Ellis for CHNI](http://www.richmondregister.com/news/a-house-divided-purple-cows-and-partisanship/article_31633270-0232-11e8-832d-336e8ac0d1f2.html).  The upshot of Mr. Ellis' story is that, for the first time since Republicans took over the chamber, a bill failed a floor vote in the House.  The bill would have lately impacted rural areas, but was sponsored by an urban legislator who is a leader of the anti-Jeff Hoover segment of the Kentucky GOP.
+
+Let's take a look at the data to see if Mr. Ellis's hunch that this vote was more about Rep. Hoover than purple paint.  I've built a database of votes in the Kentucky legislature so far this year --  so far there have been 37 total roll call votes listed by the Legislative Research Commission, and 12 votes that have been contested.  I took a look at those 12 votes the 58 Republican legislators who voted on HB 77 -- the purple paint bill -- and calculated how often (so far) they have voted along with Rep. Hoover (I only included votes of _YEA_, _NAY_, and _ABSTAIN_ votes).  Compared to how they voted on HB 77, it does appear that Mr. Ellis was right on the money:
+
+### HB 77 Vote compared to Percentage of Votes with Rep. Hoover (Republicans Only)
+```{r, echo = F, warning=F, message=F, fig.align='center', fig.height=6, fig.width=6}
+hb77
+```
+
+The average "Hoover Score" for GOP legislators who voted _NAY_ on HB77 (along with Rep. Hoover) is 89% -- on average, these legislators voted against Rep. Hoover about once so far.  However, GOP legislators who voted _YEA_ on HB77 have an average "Hoover Score" of 76%, meaning they voted against Rep. Hoover about 3 times each.  Interestingly, Rep. C. Wesley Morgan (R-Richmond), who has been one of the most vocal Republicans opponents of Rep. Hoover, is the Republican with the *highest* "Hoover Score" among those who voted _YEA_ on HB 77. Although Rep. Morgan voted against Rep. Hoover in this particular instance, his voting records hasn't matched his tweets in terms of opposition to Rep. Hoover during this session.
+
+The data certainly does back up Mr. Ellis's claim that the curious case of HB 77 does seem to give us a glimpse at the internal politics of the GOP caucus.  While it does appear that Hoover loyalists are able to torpedo a bill about purple paint, it will be interesting to watch and see if the current GOP leadership can whip these representatives when it comes to crucial votes on the budget and pension reform.

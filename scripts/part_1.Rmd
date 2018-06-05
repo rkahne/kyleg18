@@ -1,0 +1,547 @@
+---
+title: "2018 Legislative Session Part 1"
+author: "Robert Kahne"
+date: "2018-04-25"
+output:
+  rmarkdown::html_document:
+    theme: cerulean
+---
+
+```{r setup, echo=F, message=F, warning=F, include=F}
+library(pscl)
+library(wnominate)
+library(tidyverse)
+library(dummies)
+library(plotly)
+library(DT)
+
+kyleg_18_votes <- readRDS('kyleg_votes20180528 1613.rds')
+leg_data <- read_csv('leg_data.csv')
+pal <- RColorBrewer::brewer.pal(6, 'YlGnBu')[2:6]
+
+leg_data_h <- leg_data %>%
+  mutate(chamber = str_sub(District, 1, 1)) %>%
+  filter(chamber == 'H') %>% 
+  mutate(LastUnique = LastUnique %>% 
+           str_replace_all("Brown G", "Brown_g") %>% 
+           str_replace_all("Brown L", "Brown_l") %>%
+           str_replace_all("DeCesare", "Decesare") %>%
+           str_replace_all("DuPlessis", "Duplessis") %>%
+           str_replace_all("Johnson DJ", "Johnson_dj") %>%
+           str_replace_all("McCoy", "Mccoy") %>%
+           str_replace_all("Miller J", "Miller_j") %>%
+           str_replace_all("St. Onge", "St_onge") %>%
+           str_replace_all("Miller C", "Miller_c") %>% 
+           str_replace_all('Harris C', 'Harris') %>% 
+           str_replace_all('Meredith M', 'Meredith') %>% 
+           str_replace_all('Turner T', 'Turner') %>% 
+           str_replace_all('Thomas W', 'Thomas') %>% 
+           str_replace_all('Bunch', 'Huff'))
+
+leg_data_s <- leg_data  %>%
+  mutate(chamber = str_sub(District, 1, 1)) %>%
+  filter(chamber == 'S') %>% 
+  mutate(LastUnique = LastUnique %>%
+           str_replace_all("Carroll D", "Carroll_d") %>%
+           str_replace_all("Carroll J", "Carroll_j") %>%
+           str_replace_all('Adams', 'Raque_adams') %>% 
+           str_replace_all('McGarvey', 'Mcgarvey') %>% 
+           str_replace_all('Harper Angel', 'Harper_angel') %>% 
+           str_replace_all('McDaniel', 'Mcdaniel') %>% 
+           str_replace_all('Meredith S', 'Meredith') %>% 
+           str_replace_all('Stivers II', 'Stivers') %>% 
+           str_replace_all('Harris E', 'Harris') %>% 
+           str_replace_all('Thomas R', 'Thomas') %>% 
+           str_replace_all('Jones II', 'Jones') %>% 
+           str_replace_all('Embry Jr.', 'Embry') %>% 
+           str_replace_all('Turner J', 'Turner'))
+
+#### Votes by Chamber
+house_votes <- kyleg_18_votes %>% 
+  filter(house_vote != 'No Vote') %>% 
+  select(house_vote) %>% 
+  map_df(bind_rows) %>% 
+  left_join(leg_data_h, by = c('legislator' = 'LastUnique'))
+
+senate_votes <- kyleg_18_votes %>% 
+  filter(senate_vote != 'No Vote') %>% 
+  select(senate_vote) %>% 
+  map_df(bind_rows) %>% 
+  left_join(leg_data_s, by = c('legislator' = 'LastUnique'))
+
+#################### W NOMINATE ########################
+
+house_matrix <- house_votes %>% 
+  select(legislator, bill, vote) %>%   
+  mutate(vote = case_when(
+    vote == 'YEA' ~ 1,
+    vote == 'NAY' ~ 6,
+    vote == 'NV' ~ 9,
+    vote == 'PASS' ~ 9,
+    is.na(vote) ~ 9
+  )) %>% 
+  spread(bill, vote) %>% 
+  mutate_at(vars(-legislator), ~if_else(is.na(.), 8, .))
+
+house_votes_m <- as.matrix(select(house_matrix, -legislator))
+dimnames(house_votes_m) <- list(house_matrix$legislator, dimnames(house_votes_m)[[2]])
+
+legis.dat <- filter(leg_data_h, LastUnique %in% dimnames(house_votes_m)[[1]]) %>%  
+  select(LastUnique, Party, Race, Gender, First.Elected)
+
+legis.dat <- tibble(LastUnique = dimnames(house_votes_m)[[1]]) %>% 
+  left_join(leg_data_h, by = 'LastUnique') %>% 
+  select(LastUnique, party = Party, Race, Gender, First.Elected)
+
+house_rc <- rollcall(
+  data = house_votes_m,
+  yea = 1, nay = 6, missing = 9, notInLegis = 8,
+  vote.names = subset(names(house_matrix), names(house_matrix) != 'legislator'),
+  legis.data = legis.dat,
+  desc = 'Kentucky General Assembly, 2018',
+  source = 'Robert Kahne'
+)
+
+house_wn <- wnominate(house_rc, polarity = c(5, 100)) # 5 = Benvenuti, 100 = York
+
+
+house_wn_df <- house_wn$legislators
+
+senate_matrix <- senate_votes %>% 
+  select(legislator, bill, vote) %>%   
+  mutate(vote = case_when(
+    vote == 'YEA' ~ 1,
+    vote == 'NAY' ~ 6,
+    vote == 'NV' ~ 9,
+    vote == 'PASS' ~ 9,
+    is.na(vote) ~ 9
+  )) %>% 
+  spread(bill, vote) %>% 
+  mutate_at(vars(-legislator), ~if_else(is.na(.), 8, .))
+
+senate_votes_m <- as.matrix(select(senate_matrix, -legislator))
+dimnames(senate_votes_m) <- list(senate_matrix$legislator, dimnames(senate_votes_m)[[2]])
+
+legis.dat <- tibble(LastUnique = dimnames(senate_votes_m)[[1]]) %>% 
+  left_join(leg_data_s, by = 'LastUnique') %>% 
+  select(LastUnique, Party, Race, Gender, First.Elected)
+
+senate_rc <- rollcall(
+  data = senate_votes_m,
+  yea = 1, nay = 6, missing = 9, notInLegis = 8,
+  vote.names = subset(names(senate_matrix), names(senate_matrix) != 'legislator'),
+  legis.data = legis.dat,
+  desc = 'Kentucky General Assembly, 2018',
+  source = 'Robert Kahne'
+)
+
+senate_wn <- wnominate(senate_rc, polarity = c(36, 28)) # 36 = Westerfield, 28 = Seum
+
+senate_wn_df <- senate_wn$legislators
+
+absenteeism_h <- house_votes %>% 
+  group_by(legislator, vote) %>% 
+  summarise(n=n()) %>% 
+  ungroup() %>% 
+  group_by(legislator) %>% 
+  mutate(n_pct = n / sum(n)) %>% 
+  filter(vote == 'NV')
+
+nested_votes <- house_votes %>% 
+  select(legislator, bill, vote) %>% 
+  nest(-legislator)
+
+nested_senate <- senate_votes %>% 
+  select(legislator, bill, vote) %>% 
+  nest(-legislator)
+
+nested_votes %<>% 
+  mutate(others = map(legislator, function(x){
+    nested_votes %>% filter(legislator != x)
+  })) %>% 
+  mutate(buddies = map2(data, others, function(l, o){
+    len_l <- l %>% unnest() %>% rename(leg_vote = vote)
+    o %>% 
+      unnest() %>% 
+      left_join(len_l, by = 'bill') %>% 
+      filter(vote == leg_vote) %>% 
+      count(legislator) %>% 
+      mutate(pct_n = n / nrow(len_l))
+  }))
+
+nested_senate %<>% 
+  mutate(others = map(legislator, function(x){
+    nested_senate %>% filter(legislator != x)
+  })) %>% 
+  mutate(buddies = map2(data, others, function(l, o){
+    len_l <- l %>% unnest() %>% rename(leg_vote = vote)
+    o %>% 
+      unnest() %>% 
+      left_join(len_l, by = 'bill') %>% 
+      filter(vote == leg_vote) %>% 
+      count(legislator) %>% 
+      mutate(pct_n = n / nrow(len_l))
+  }))
+
+# Bills where Leadership disagreed.
+# Adkins was a NV on two votes, but Wilson Stone voted for both.
+disagreement <- nested_votes %>% 
+  filter(legislator == 'Adkins') %>% 
+  mutate(Osborne = map2(data, others, function(l, o){
+    osborne <- o %>% filter(legislator == 'Osborne') %>% unnest() %>% select(bill, o_vote = vote)
+    l %>% 
+      left_join(osborne, by = 'bill') %>% 
+      filter(vote != o_vote)
+  })) %>% 
+  select(Osborne) %>% 
+  unnest() %>% 
+  filter(vote != 'NV') %>% 
+  rename(dem_lead = vote, gop_lead = o_vote)
+
+disagreement_senate <- nested_senate %>% 
+  filter(legislator == 'Jones') %>% 
+  mutate(Stivers = map2(data, others, function(l, o){
+    stivers <- o %>% filter(legislator == 'Stivers') %>% unnest() %>% select(bill, s_vote = vote)
+    l %>% 
+      left_join(stivers, by = 'bill') %>% 
+      filter(vote != s_vote)
+  })) %>% 
+  select(Stivers) %>% 
+  unnest() %>% 
+  filter(vote != 'NV') %>% 
+  rename(dem_lead = vote, gop_lead = s_vote)
+
+voted_leadership <- house_votes %>% 
+  inner_join(disagreement) %>% 
+  mutate(voted_leadership = pmap_lgl(list(Party, vote, dem_lead, gop_lead),
+                                     function(p, v, d, r){
+                                       if(v == 'NV') NA
+                                       else if(p == 'Democratic'){
+                                         if_else(v == d, T, F)
+                                       }else if(p == 'Republican'){
+                                         if_else(v == r, T, F)
+                                       }else NA
+                                     })) %>% 
+  count(legislator, Party, voted_leadership) %>% 
+  replace_na(list(voted_leadership = 'NV')) %>% 
+  spread(voted_leadership, n) %>% 
+  replace_na(list(`FALSE` = 0, NV = 0, `TRUE` = 0)) %>% 
+  mutate(pct = pmap_dbl(list(`FALSE`, NV, `TRUE`), function(f, n, t) t / (t + n + f)),
+         pct_tf = map2_dbl(`FALSE`, `TRUE`, function(f,t) t / (t + f)))
+
+voted_leadership_senate <- senate_votes %>% 
+  inner_join(disagreement_senate) %>% 
+  mutate(voted_leadership = pmap_lgl(list(Party, vote, dem_lead, gop_lead),
+                                     function(p, v, d, r){
+                                       if(v == 'NV') NA
+                                       else if(p == 'Democratic'){
+                                         if_else(v == d, T, F)
+                                       }else if(p == 'Republican'){
+                                         if_else(v == r, T, F)
+                                       }else NA
+                                     })) %>% 
+  count(legislator, Party, voted_leadership) %>% 
+  replace_na(list(voted_leadership = 'NV')) %>% 
+  spread(voted_leadership, n) %>% 
+  replace_na(list(`FALSE` = 0, NV = 0, `TRUE` = 0)) %>% 
+  mutate(pct = pmap_dbl(list(`FALSE`, NV, `TRUE`), function(f, n, t) t / (t + n + f)),
+         pct_tf = map2_dbl(`FALSE`, `TRUE`, function(f,t) t / (t + f)))
+
+leadership_votes <- nested_votes %>% 
+  filter(legislator == 'Adkins') %>% 
+  mutate(Osborne = map2(data, others, function(l, o){
+    osborne <- o %>% filter(legislator == 'Osborne') %>% unnest() %>% select(bill, o_vote = vote)
+    l %>% 
+      left_join(osborne, by = 'bill')
+  })) %>% 
+  select(Osborne) %>% 
+  unnest() %>% 
+  mutate(if_else(vote == 'NV', 'YEA', 'NAY')) %>% 
+  rename(dem_lead = vote, gop_lead = o_vote)
+
+leadership_senate <- nested_senate %>% 
+  filter(legislator == 'Jones') %>% 
+  mutate(Stivers = map2(data, others, function(l, s){
+    stivers <- s %>% filter(legislator == 'Stivers') %>% unnest() %>% select(bill, s_vote = vote)
+    l %>% 
+      left_join(stivers, by = 'bill')
+  })) %>% 
+  select(Stivers) %>% 
+  unnest() %>% 
+  mutate(if_else(vote == 'NV', 'YEA', 'NAY')) %>% 
+  rename(dem_lead = vote, gop_lead = s_vote)
+
+voted_leadership_all <- house_votes %>% 
+  inner_join(leadership_votes) %>% 
+  mutate(voted_leadership = pmap_lgl(list(Party, vote, dem_lead, gop_lead),
+                                     function(p, v, d, r){
+                                       if(v == 'NV') NA
+                                       else if(p == 'Democratic'){
+                                         if_else(v == d, T, F)
+                                       }else if(p == 'Republican'){
+                                         if_else(v == r, T, F)
+                                       }else NA
+                                     })) %>% 
+  count(legislator, Party, voted_leadership) %>% 
+  replace_na(list(voted_leadership = 'NV')) %>% 
+  spread(voted_leadership, n) %>% 
+  replace_na(list(`FALSE` = 0, NV = 0, `TRUE` = 0)) %>% 
+  mutate(pct = pmap_dbl(list(`FALSE`, NV, `TRUE`), function(f, n, t) t / (t + n + f)),
+         pct_tf = map2_dbl(`FALSE`, `TRUE`, function(f,t) t / (t + f)))
+
+voted_leadership_all_senate <- senate_votes %>% 
+  inner_join(leadership_senate) %>% 
+  mutate(voted_leadership = pmap_lgl(list(Party, vote, dem_lead, gop_lead),
+                                     function(p, v, d, r){
+                                       if(v == 'NV') NA
+                                       else if(p == 'Democratic'){
+                                         if_else(v == d, T, F)
+                                       }else if(p == 'Republican'){
+                                         if_else(v == r, T, F)
+                                       }else NA
+                                     })) %>% 
+  count(legislator, Party, voted_leadership) %>% 
+  replace_na(list(voted_leadership = 'NV')) %>% 
+  spread(voted_leadership, n) %>% 
+  replace_na(list(`FALSE` = 0, NV = 0, `TRUE` = 0)) %>% 
+  mutate(pct = pmap_dbl(list(`FALSE`, NV, `TRUE`), function(f, n, t) t / (t + n + f)),
+         pct_tf = map2_dbl(`FALSE`, `TRUE`, function(f,t) t / (t + f)))
+```
+
+The 2018 legislative session in Kentucky was momentous.  Media outlets throughout the state have written and spoken at length about the pension bill, the budget, the gangs bill, the child marriage ban, the ban on dilation and evacuation abortions, and many others.  But, so far as I can tell, there hasn’t been an attempt to analyze the legislative session using data analytics.
+
+So here I am!  You are reading Part One of what I hope to be Three pieces analyzing the 2018 legislative session with an eye towards data analytics and visualization.  Part One will focus on measures of ideology among individual legislators.  View the tabs below to the four ways I measured ideology in 2018.
+
+# {.tabset}
+
+## W-Nominate
+
+[In 2017](https://rkahne.github.io/2017/04/19/w-nominate-scores/), I measured the legislative session using W-Nominate.  If you don’t want to read the full post from 2017, W-Nominate is a way to measure a single session of a legislature, comparing all the votes of all the legislators against one another, and determining how far apart they are on a left-right scale.  The fact that all the votes are used to measure means that W-Nominate is a more holistic measure of ideology.  It has less bias than, say, a [teacher union’s tally of specific votes](https://www.dropbox.com/s/8jqbitcuenpa21b/Key%20Jefferson%20County%20Votes%202017-18.pdf?dl=0) or the [Chamber of Commerce providing their own scores](https://www.kychamber.com/sites/default/files/Results%20for%20Business%202017.pdf).  However, one significant drawback of W-Nominate is that it only scores votes with less than 20% opposition.  (We’ll deal with that in a different tab!)
+
+### {.tabset}
+#### House
+
+My initial observation when looking at the House graphic is how the GOP is significantly more bunched up that the Democratic caucus.  I believe this is because the GOP controls the agenda in the House.  While the 2018 session included more difficult votes than the 2017 session, most votes were policy priorities of the GOP with more broad appeal to the GOP -- while splitting the Democratic caucus.  One interesting observation about the Democratic side of the W-Nominate scores is that three of the five most conservative members of their caucus are retiring at the end of the year.  It’s likely that the Democratic caucus in the next session might be more consistently liberal than the caucus this year.
+
+##### (Y values are random)
+```{r wnom_h, echo=F, message=F, warning=F}
+
+ax <- list(
+  title = "",
+  zeroline = FALSE,
+  showline = FALSE,
+  showticklabels = FALSE,
+  showgrid = FALSE
+)
+
+house_wn_df %>% 
+  left_join(leg_data_h %>% select(LastUnique, Initial.Name)) %>% 
+  mutate(y = map_dbl(Initial.Name, ~runif(1))) %>% 
+plot_ly(x = ~coord1D, y = ~y, color = ~party, colors = c('#2b8cbe', '#de2d26'), alpha = 0.4, hoverinfo = 'text',
+        text = ~str_glue('{Initial.Name}<br>Score: {round(coord1D,5)}<br>Race: {Race}<br>Gender: {Gender}<br>First Elected: {First.Elected}')) %>% 
+  layout(xaxis = ax, yaxis = list(title = "",
+  zeroline = FALSE,
+  showline = FALSE,
+  showticklabels = FALSE,
+  showgrid = FALSE, range = c(-4,5)))
+
+```
+
+#### Senate
+
+The Senate graph is very interesting.  The Democrats and Republicans are bunched mostly the same as the House graphic, but in the Senate there are three legislators -- two Republicans and a Democrat, in the middle.  The two Republicans are Senator Brandon Smith of southeastern Kentucky and Senator C.B. Embry of western Kentucky.  The Democrat is Senator Dennis Parrett, the minority whip.  Senator Embry was elevated to whip when Senator Julian Carroll stepped down due to a [sex scandal](http://mycn2.com/politics/school-for-sexa-powerful-kentucky-lawmaker-s-proposition-to-a-former-constituent).  I think it’s likely that the Senate Democratic caucus will be more liberal next year, and so I wonder if someone will challenge Senator Embry for the leadership position.
+
+
+##### (Y values are random)
+```{r wnom_s, echo=F, message=F, warning=F}
+senate_wn_df %>% 
+  left_join(leg_data_s %>% select(LastUnique, Initial.Name)) %>% 
+  mutate(y = map_dbl(LastUnique, ~runif(1))) %>% 
+plot_ly(x = ~coord1D, y = ~y, color = ~Party, colors = c('#2b8cbe', '#de2d26'), alpha = 0.4, hoverinfo = 'text',
+        text = ~str_glue('{Initial.Name}<br>Score: {round(coord1D,5)}<br>Race: {Race}<br>Gender: {Gender}<br>First Elected: {First.Elected}')) %>% 
+  layout(xaxis = ax, yaxis = list(title = "",
+  zeroline = FALSE,
+  showline = FALSE,
+  showticklabels = FALSE,
+  showgrid = FALSE, range = c(-4,5)))
+
+```
+
+## Voted With Leadership (Contested)
+
+One way to measure ideology is by looking at how often a legislator voted with leadership.  This particular chart shows how legislators in both parties voted on the 26 bills where the GOP leader and Democratic leader voted differently.  These were the most hotly contested of the session and the votes that likely got the most media coverage.  On average, House Republicans voted 91% of the time with leadership on contested votes, and House Democrats voted 89% of the time.  Senate Republicans voted with leadership 60% of the time, and Senate Democrats voted with leadership 88%. Please note that only bills where a legislator recorded a YEA or NAY vote are used to calculate these scores.  These charts are centered around the average percentages -- bars moving to the right indicate above average party support and bars moving to the left indicated less than average party support.
+
+### {.tabset}
+#### House
+
+10 Democrats (27% of the caucus) voted with leadership 100% of the time on contested votes. The Democrats who voted the least with their party’s leadership include Reps. Richards, Watkins, and Riggs -- all three are retiring, and all three had a more conservative W-Nominate score.  In addition to having a more liberal party next year, the retirement of these three legislators may also lead to a more cohesive party. Another worthwhile observation is that Rep. Meeks and Rep. Scott have above average party unity percentages when only considering contested votes.  They have very low scores when considering all votes.  This phenomenon shows us that when the party took a strong stand, the party and these two more liberal Representatives were more often than not on the same side.  On the Republican side, 22 members (35% of the caucus) voted with leadership 100% of the time on contested votes.  The Republicans are a more cohesive caucus, but that is likely because they are in the majority.  The legislator with the lowest party cohesion is Robert Goforth, who won a special election in the middle of the session.  He arrived after more easy votes were taken, and this may have skewed his score.
+
+```{r leadership_contest, echo = F, message = F, warning=F, fig.height= 11, fig.width=6}
+df <- voted_leadership %>%
+  left_join(leg_data_h %>% select(LastUnique, Initial.Name), by = c('legislator' = 'LastUnique')) %>% 
+  group_by(Party) %>% 
+  mutate(diff = pct_tf - mean(pct_tf),
+         txt = str_glue('{Initial.Name}<br>Voted w/ Leadership: {scales::percent_format()(pct_tf)}<br>Difference from Party Avg: {scales::percent_format()(diff)}'))
+
+dem <-  df %>% 
+  filter(Party == 'Democratic') %>% 
+  plot_ly(x = ~diff, y = ~fct_reorder(Initial.Name, diff), text = ~txt, hoverinfo='text', marker = list(color = '#2b8cbe')) %>% 
+  layout(xaxis = list(tickformat = "%"))
+
+gop <- df %>% 
+  filter(Party == 'Republican') %>% 
+  plot_ly(x = ~diff, y = ~fct_reorder(Initial.Name, diff), text = ~txt, hoverinfo = 'text', marker = list(color = '#de2d26')) %>% 
+  layout(xaxis = list(tickformat = "%"))
+
+subplot(dem, gop, margin = 0.1) %>% 
+  layout(showlegend = F, height = 1000, margin = list(l = 150, pad = 4))
+```
+
+#### Senate
+
+On the Senate side, only one Democrat and one Republican voted with leadership 100% of the time -- the leader themself!  Senate Republicans have very low party cohesion, the average Republican only voted with leadership 60% of the time.  This is probably due the overwhelming majority (71%) that the Republicans enjoy in the Senate.  There are lots of ways to get to 19 votes, and therefore whipping is a lower priority for Senate leadership.  The Democratic graph again shows that Sen. Parrett had the lowest party loyalty -- odd for a member of leadership.  Meanwhile, Senators Embry and Smith show up on the Senate side as the least loyal -- providing corroboration of the W-Nominate score which showed that they were significantly different from their own party’s ideology.
+
+```{r leadership_contest_s, echo=F, message=F, warning=F}
+df <- voted_leadership_senate %>% 
+  left_join(leg_data_s %>% select(LastUnique, Initial.Name), by = c('legislator' = 'LastUnique')) %>% 
+  group_by(Party) %>% 
+  mutate(diff = pct_tf - mean(pct_tf),
+         txt = str_glue('{Initial.Name}<br>Voted w/ Leadership: {scales::percent_format()(pct_tf)}<br>Difference from Party Avg: {scales::percent_format()(diff)}'))
+
+dem <-  df %>% 
+  filter(Party == 'Democratic') %>% 
+  plot_ly(x = ~diff, y = ~fct_reorder(Initial.Name, diff), text = ~txt, hoverinfo='text', marker = list(color = '#2b8cbe')) %>% 
+  layout(xaxis = list(tickformat = "%"))
+
+gop <- df %>% 
+  filter(Party == 'Republican') %>% 
+  plot_ly(x = ~diff, y = ~fct_reorder(Initial.Name, diff), text = ~txt, hoverinfo = 'text', marker = list(color = '#de2d26')) %>% 
+  layout(xaxis = list(tickformat = "%"))
+
+subplot(dem, gop, margin = 0.1) %>% 
+  layout(showlegend = F, height = 1000, margin = list(l = 150, pad = 4))
+```
+
+## Voted With Leadership (All)
+
+One way to measure ideology is by looking at how often a legislator voted with leadership.  Looking at all the votes -- not just contested votes -- helps to highlight legislators who are more willing to buck not just their own party’s leadership, but who are willing to stand up against the leadership of both parties.  When looking at all bills, the average cohesiveness of a caucus is higher -- for Democrats the average House member voted with leadership 93% of the time, and the average Republican voted with their leadership 98% of the time.  On the Senate side, Democrats voted with their party on average 96% of the time, and Republicans voted 94% of the time with their party. These charts are centered around the average percentages -- bars moving to the right indicate above average party support and bars moving to the left indicated less than average party support. Please note that only bills where a legislator recorded a YEA or NAY vote are used to calculate these scores.
+
+### {.tabset}
+
+On the House side, my biggest takeaway is Rep. Scott.  She voted with leadership 80% of the time, which was the lowest percentage of any legislator.  The second lowest percentage was Darryl Owens (their districts border one another).  He voted with leadership 86% of the time -- a full 5% more.  
+
+#### House
+```{r leadership_all, echo = F, message = F, warning=F, fig.height=11, fig.width=6}
+df <- voted_leadership_all %>%
+  left_join(leg_data_h %>% select(LastUnique, Initial.Name), by = c('legislator' = 'LastUnique')) %>% 
+  group_by(Party) %>% 
+  mutate(diff = pct_tf - mean(pct_tf),
+         txt = str_glue('{Initial.Name}<br>Voted w/ Leadership: {scales::percent_format()(pct_tf)}<br>Difference from Party Avg: {scales::percent_format()(diff)}'))
+
+dem <-  df %>% 
+  filter(Party == 'Democratic') %>% 
+  plot_ly(x = ~diff, y = ~fct_reorder(Initial.Name, diff), text = ~txt, hoverinfo='text', marker = list(color = '#2b8cbe')) %>% 
+  layout(xaxis = list(tickformat = "%"))
+
+gop <- df %>% 
+  filter(Party == 'Republican') %>% 
+  plot_ly(x = ~diff, y = ~fct_reorder(Initial.Name, diff), text = ~txt, hoverinfo = 'text', marker = list(color = '#de2d26')) %>% 
+  layout(xaxis = list(tickformat = "%"))
+
+subplot(dem, gop, margin = 0.1) %>% 
+  layout(showlegend = F, height = 1000, margin = list(l = 150, pad = 4))
+```
+
+#### Senate
+
+On the Senate side, we see the two Republicans on the left end of their caucus again show up at the bottom of the chart -- indicating that they had the lowest percentage of voted with leadership across the session.  Sen. Smith and Sen. Embry had scores of 89%, similar percentages as Reps. Flood, Simpson, and Donohue in the Democratic House.  However, on the Democratic side, Senator Parrett jumps to a much higher score comparatively.  While he had the most conservative W-Nominate score and the lowest party unity percentage when isolating contested votes, he is actually slightly above average when looking at all votes.  It appears that Sen. Parrett tended to vote against the party in contested votes disproportionately.
+
+```{r leadership_all_s, echo = F, message = F, warning=F}
+df <- voted_leadership_all_senate %>%
+  left_join(leg_data_s %>% select(LastUnique, Initial.Name), by = c('legislator' = 'LastUnique')) %>% 
+  group_by(Party) %>% 
+  mutate(diff = pct_tf - mean(pct_tf),
+         txt = str_glue('{Initial.Name}<br>Voted w/ Leadership: {scales::percent_format()(pct_tf)}<br>Difference from Party Avg: {scales::percent_format()(diff)}'))
+
+dem <-  df %>% 
+  filter(Party == 'Democratic') %>% 
+  plot_ly(x = ~diff, y = ~fct_reorder(Initial.Name, diff), text = ~txt, hoverinfo='text', marker = list(color = '#2b8cbe')) %>% 
+  layout(xaxis = list(tickformat = "%"))
+
+gop <- df %>% 
+  filter(Party == 'Republican') %>% 
+  plot_ly(x = ~diff, y = ~fct_reorder(Initial.Name, diff), text = ~txt, hoverinfo = 'text', marker = list(color = '#de2d26')) %>% 
+  layout(xaxis = list(tickformat = "%"))
+
+subplot(dem, gop, margin = 0.1) %>% 
+  layout(showlegend = F, height = 1000, margin = list(l = 150, pad = 4))
+```
+
+## Low Opposition Votes
+
+An important way to look at ideology is to look at when legislators stood alone.  These bar graphs show the number of votes that a legislator opposed when they were among an opposition of five or fewer. These votes aren’t even captured by W-Nominate, which only considers votes with at least 20% opposition.  These votes are true outliers -- when legislators made the decision to take a stand even though it held no impact on the outcome of the vote. When read in conjunction with the other charts, highlighting these votes shows us which legislators were the furthest away from the center in terms of their voting.
+
+### {.tabset}
+
+#### House
+
+In the House, it’s apparent that Rep. Attica Scott and Rep. Reggie Meeks have a high propensity to stand by themselves in opposition even when very few others stand with them.  In the party loyalty percentages for all voted taken, we saw that Rep. Scott had an outlier score of 80% -- by far the lowest loyalty of any other legislator, and had one of the most liberal W-Nominate scores.  Rep. Meeks also had a very liberal W-Nominate Score and a low party loyalty score when considering all votes, but taking all these data points in conjunction, I would make the case that these two legislators are the furthest left in the House.
+
+```{r low_opposition_h, echo=F, message=F, warning=F}
+house_votes %>% 
+  select(Initial.Name, bill, vote) %>% 
+  nest(-bill) %>% 
+  mutate(data = map(data, function(x){
+      x %>% filter(vote == 'NAY')
+    }),
+    n_nays = map_dbl(data, nrow)
+  ) %>% 
+  filter(n_nays < 5, n_nays > 0) %>% 
+  unnest() %>% 
+  count(Initial.Name) %>% 
+  left_join(house_votes %>% select(Initial.Name, Party)) %>% 
+  distinct() %>% 
+  mutate(col = if_else(Party == 'Democratic', '#2b8cbe', '#de2d26')) %>% 
+  plot_ly(x = ~fct_reorder(Initial.Name, n), y = ~n, marker = list(color = ~col)) %>% 
+  layout(margin = list(b = 100), xaxis = list(title = ''), yaxis = list(title = ''))
+```
+
+#### Senate
+
+In the Senate, we see that John Schickel actually opposed more bills as a part of a group of five or fewer than even Rep. Scott.  It should be said that the Senate has fewer people, so a group of five Senators is less unique than a group of five representatives.  However, Senator Schickel also had a very conservative W-Nominate Score and the lowest party unity percentage when considering all votes, so in the same way that we identified Reps. Meeks and Scott as the most liberal, we should also consider Rep. Schickel the most conservative.
+
+```{r low_opposition_s, echo=F, message=F, warning=F}
+senate_votes %>% 
+  select(Initial.Name, bill, vote) %>% 
+  nest(-bill) %>% 
+  mutate(data = map(data, function(x){
+      x %>% filter(vote == 'NAY')
+    }),
+    n_nays = map_dbl(data, nrow)
+  ) %>% 
+  filter(n_nays < 5, n_nays > 0) %>% 
+  unnest() %>% 
+  count(Initial.Name) %>% 
+  left_join(senate_votes %>% select(Initial.Name, Party)) %>% 
+  distinct() %>% 
+  mutate(col = if_else(Party == 'Democratic', '#2b8cbe', '#de2d26')) %>% 
+  plot_ly(x = ~fct_reorder(Initial.Name, n), y = ~n, marker = list(color = ~col)) %>% 
+  layout(margin = list(b = 100), xaxis = list(title = '', tickangle = 90), yaxis = list(title = ''))
+```
+
+## W-Nominate Tables
+
+```{r w_nom_dt, echo=F, message=F, warning=F}
+house_wn_df %>% 
+  left_join(leg_data_h %>% select(Initial.Name, LastUnique)) %>% 
+  select(Name = Initial.Name, Score = coord1D, Party = party, Race, Gender, `First Elected` = First.Elected) %>% 
+  mutate(Score = round(Score, 5)) %>% 
+  datatable(options = list(pageLength = 100, dom = 't'))
+
+senate_wn_df %>% 
+  left_join(leg_data_s %>% select(Initial.Name, LastUnique)) %>% 
+  select(Name = Initial.Name, Score = coord1D, Party, Race, Gender, `First Elected` = First.Elected) %>% 
+  mutate(Score = round(Score, 5)) %>% 
+  datatable(options = list(pageLength = 100, dom = 't'))
+```
+

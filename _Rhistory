@@ -1,0 +1,169 @@
+library(tidyverse)
+update.packages('tidyverse')
+library(tidyverse)
+update.packages('tibble')
+?fromJSON
+master_list <- fromJSON('https://api.legiscan.com/?key=6ddeedfc381c2f82e6f65a0ef37b4fb6&op=getMasterList&state=KY')
+library(jsonlite)
+master_list <- fromJSON('https://api.legiscan.com/?key=6ddeedfc381c2f82e6f65a0ef37b4fb6&op=getMasterList&state=KY')
+View(master_list)
+master_list[["masterlist"]][["0"]][["bill_id"]]
+map(master_list, 'masterlist')
+map(master_list, masterlist)
+?split
+master_list %>% map(masterlist)
+master_list %>% map(`[`,masterlist)
+master_list %>% map(`[`,'masterlist')
+master_list %>% map(`[`,'masterlist') %>% map(`[`, 'bill_id')
+library(magrittr)
+?extract
+master_list %>% map(extract2,'masterlist')
+master_list %>% map(extract,'masterlist')
+master_list[["masterlist"]]
+master_list[["masterlist"]] %>% map(extract, 'bill_id')
+master_list[["masterlist"]] %>% map(extract, 'bill_id') %>% as_vector()
+master_list[["masterlist"]] %>% map(extract, 'bill_id') ->c
+c
+c %>% unlist()
+c %>% as_tibble()
+c %>% as_tibble() %>% View()
+master_list[["masterlist"]] %>% map(extract, 'bill_id') %>% unlist() %>% unname()
+master_list[["masterlist"]] %>% map(extract, c('bill_id', 'number', 'status_date', 'status', 'last_action_date', 'last_action', 'title', 'descrption') ->c
+master_list[["masterlist"]] %>% map(extract, c('bill_id', 'number', 'status_date', 'status', 'last_action_date', 'last_action', 'title', 'descrption')) ->c
+View(c)
+c %>% as_tibble()
+c %>% as_tibble() %>% View()
+c %>% as_tibble() %>% t() %>% View()
+c %>% as_tibble() %>% View()
+(c %>% as_tibble())[[1]]
+(c %>% as_tibble())[[2]]
+(c %>% as_tibble())[1]
+(c %>% as_tibble())[2]
+kyleg_18 <- tibble(
+bill_id = master_list[["masterlist"]] %>% map(extract, 'bill_id') %>% unlist() %>% unname(),
+number = master_list[["masterlist"]] %>% map(extract, 'number') %>% unlist() %>% unname(),
+status_date = master_list[["masterlist"]] %>% map(extract, 'status_date') %>% unlist() %>% unname(),
+status = master_list[["masterlist"]] %>% map(extract, 'status') %>% unlist() %>% unname(),
+last_action_date = master_list[["masterlist"]] %>% map(extract, 'last_action_date') %>% unlist() %>% unname(),
+last_action = master_list[["masterlist"]] %>% map(extract, 'last_action') %>% unlist() %>% unname(),
+title = master_list[["masterlist"]] %>% map(extract, 'title') %>% unlist() %>% unname(),
+descrption = master_list[["masterlist"]] %>% map(extract, 'descrption') %>% unlist() %>% unname(),
+)
+master_list[["masterlist"]] %>% map(extract, 'descrption') %>% unlist() %>% unname()
+kyleg_18 <- tibble(
+bill_id = master_list[["masterlist"]] %>% map(extract, 'bill_id') %>% unlist() %>% unname(),
+number = master_list[["masterlist"]] %>% map(extract, 'number') %>% unlist() %>% unname(),
+status_date = master_list[["masterlist"]] %>% map(extract, 'status_date') %>% unlist() %>% unname(),
+status = master_list[["masterlist"]] %>% map(extract, 'status') %>% unlist() %>% unname(),
+last_action_date = master_list[["masterlist"]] %>% map(extract, 'last_action_date') %>% unlist() %>% unname(),
+last_action = master_list[["masterlist"]] %>% map(extract, 'last_action') %>% unlist() %>% unname(),
+title = master_list[["masterlist"]] %>% map(extract, 'title') %>% unlist() %>% unname(),
+description = master_list[["masterlist"]] %>% map(extract, 'description') %>% unlist() %>% unname(),
+)
+View(kyleg_18)
+kyleg_18 <- tibble(
+bill_id = master_list[["masterlist"]] %>% map(extract, 'bill_id') %>% unlist() %>% unname(),
+number = master_list[["masterlist"]] %>% map(extract, 'number') %>% unlist() %>% unname(),
+status_date = master_list[["masterlist"]] %>% map(extract, 'status_date') %>% unlist() %>% unname(),
+status = master_list[["masterlist"]] %>% map(extract, 'status') %>% unlist() %>% unname(),
+last_action_date = master_list[["masterlist"]] %>% map(extract, 'last_action_date') %>% unlist() %>% unname(),
+last_action = master_list[["masterlist"]] %>% map(extract, 'last_action') %>% unlist() %>% unname(),
+title = master_list[["masterlist"]] %>% map(extract, 'title') %>% unlist() %>% unname(),
+description = master_list[["masterlist"]] %>% map(extract, 'description') %>% unlist() %>% unname(),
+) %>%
+mutate(bill_data = map(bill_id, function(id) fromJSON(paste0('https://api.legiscan.com/?key=6ddeedfc381c2f82e6f65a0ef37b4fb6&op=getBill&id=',id))))
+View(kyleg_18)
+kyleg_18$bill_data %>% View()
+kyleg_18$bill_data[['bill']]
+kyleg_18$bill_data[[1]][['bill']]
+map(kyleg_18$bill_data, function(d){
+d[['bill']] %>% map(extract, 'sponsors')
+})
+map(kyleg_18$bill_data[[1]], function(d){
+d[['bill']] %>% map(extract, 'sponsors')
+})
+map(kyleg_18$bill_data[['bill']], extract, 'sponsors')
+map(kyleg_18$bill_data[['bill']][[1]], extract, 'sponsors')
+map(kyleg_18$bill_data[[1]][['bill']], extract, 'sponsors')
+kyleg_18$bill_data[[1]][['bill']]
+kyleg_18$bill_data[[1]][['bill']]$sponsors
+sponsors <- map(kyleg_18$bill_data, function(d) d[['bill']]$sponsors)
+View(sponsors)
+sponsors <- map(kyleg_18$bill_data, function(d) d[['bill']]$sponsors) %>%
+map_df(bind_rows)
+View(sponsors)
+sponsors <- map2(kyleg_18$number, kyleg_18$bill_data, function(n, d) d[['bill']]$sponsors %>% mutate(bill_number = n)) %>%
+map_df(bind_rows)
+sponsors <- map2(kyleg_18$number, kyleg_18$bill_data, function(n, d) d[['bill']]$sponsors %>% mutate(bill_number = n)) %>%
+map_df(bind_rows)
+sessions <- fromJSON('https://api.legiscan.com/?key=6ddeedfc381c2f82e6f65a0ef37b4fb6&op=getSessionList&state=KY')
+View(sessions)
+sessions %>% map_df(extract, 'sessions')
+sessions %>% map_df('sessions')
+sessions[['sessions']]
+sessions <- sessions[['sessions']]
+View(sessions)
+kyleg_17 <- fromJSON('https://api.legiscan.com/?key=6ddeedfc381c2f82e6f65a0ef37b4fb6&op=getMasterList&state=KY&id=1257')
+View(kyleg_17)
+master_list_17 <- kyleg_17
+kyleg_17 <- tibble(
+bill_id = master_list_17[["masterlist"]] %>% map(extract, 'bill_id') %>% unlist() %>% unname(),
+number = master_list_17[["masterlist"]] %>% map(extract, 'number') %>% unlist() %>% unname(),
+status_date = master_list_17[["masterlist"]] %>% map(extract, 'status_date') %>% unlist() %>% unname(),
+status = master_list_17[["masterlist"]] %>% map(extract, 'status') %>% unlist() %>% unname(),
+last_action_date = master_list_17[["masterlist"]] %>% map(extract, 'last_action_date') %>% unlist() %>% unname(),
+last_action = master_list_17[["masterlist"]] %>% map(extract, 'last_action') %>% unlist() %>% unname(),
+title = master_list_17[["masterlist"]] %>% map(extract, 'title') %>% unlist() %>% unname(),
+description = master_list_17[["masterlist"]] %>% map(extract, 'description') %>% unlist() %>% unname()
+) %>%
+mutate(bill_data = map(bill_id, function(id){
+fromJSON(paste0('https://api.legiscan.com/?key=6ddeedfc381c2f82e6f65a0ef37b4fb6&op=getBill&id=',id))
+}))
+View(kyleg_17)
+kyleg_17$bill_data[[1]] %>% View()
+kyleg_17$bill_data[[1]] %>% View()
+View(sponsors)
+View(sponsors)
+sponsors %>%
+group_by(name) %>%
+summarize(n=n())
+sponsors %>%
+group_by(name) %>%
+summarize(n=n()) %>%
+arrange(desc(n))
+sponsors %>%
+group_by(name) %>%
+summarize(n=n()) %>%
+arrange(desc(n)) %>%
+View()
+sponsors %>%
+filter(name == 'John Sims') %>%
+select(bill_name)
+sponsors %>%
+filter(name == 'John Sims') %>%
+select(bill_number)
+View(kyleg_18)
+source('~/R/legiscan/kyleg_18.R', echo=TRUE)
+kyleg_18 %>%
+group_by(last_action) %>%
+summarize(n=n()) %>%
+arrange(desc(n))
+kyleg_18 %>%
+group_by(last_action) %>%
+summarize(n=n()) %>%
+arrange(desc(n)) %>% View()
+kyleg_18 %>%
+filter(last_action == 'to Senate Floor')
+kyleg_18 %>%
+filter(last_action == 'to Senate Floor') %>% View()
+kyleg_18 %>%
+group_by(last_action) %>%
+summarize(n=n()) %>%
+arrange(desc(n)) %>% View()
+sponsors %>%
+group_by(name) %>%
+summarize(n=n()) %>%
+arrange(desc(n)) %>%
+View()
+source('C:/Users/rkahne/Google Drive/R/legiscan/kyleg_18.R')
+View(sponsors)
